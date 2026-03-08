@@ -51,11 +51,22 @@ build/
 
 # GenPose2 generated outputs
 /GenPose2/results/
+/GenPose2/data/
+/GenPose2/pytorch3d/
+/GenPose2/common/
 /GenPose2/networks/pts_encoder/pointnet2_utils/pointnet2/build/
+/GenPose2/networks/pts_encoder/pointnet2_utils/pointnet2/dist/
+/GenPose2/networks/pts_encoder/pointnet2_utils/pointnet2/pointnet2.egg-info/
 /GenPose2/networks/pts_encoder/pointnet2_utils/pointnet2/**/*.so
+/GenPose2/networks/pts_encoder/pointnet2_utils/tools/data/
 
 # FoundationPose generated outputs
 /aiws_alignment-feat-model-free/mycpp/build/
 /aiws_alignment-feat-model-free/mycpp/**/*.so
 /aiws_alignment-feat-model-free/bundlesdf/mycuda/build/
 /aiws_alignment-feat-model-free/bundlesdf/mycuda/**/*.so
+/aiws_alignment-feat-model-free/datasets/
+/aiws_alignment-feat-model-free/my_data_*/
+
+# Algorithm local misc
+/yolov11-seg-aiws/datasets/
