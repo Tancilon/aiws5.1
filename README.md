@@ -13,6 +13,8 @@
   - 宿主机 `aiws` 编排环境的最小依赖清单
 - [scripts/build_aiws_stack.sh](scripts/build_aiws_stack.sh)
   - 一键构建脚本
+- [scripts/download_weights.sh](scripts/download_weights.sh)
+  - 单独下载运行权重脚本
 - [scripts/run_aiws.sh](scripts/run_aiws.sh)
   - 根流程运行脚本
 - [config/aiws_sub.yaml](config/aiws_sub.yaml)
@@ -93,17 +95,9 @@ bash scripts/build_aiws_stack.sh
 
 运行时同样使用这三个环境变量，所以构建和运行可以保持一致。
 
-## 权重上传与下载
+## 权重下载
 
-不建议直接在仓库根目录执行：
-
-```bash
-hf upload tancilon/aiws5.1 .
-```
-
-这样会把源码、样例数据、缓存和其他本地文件一起上传。
-
-本仓库已经提供了只打包“运行期真实需要的权重”的脚本，包括：
+运行期真实需要的权重包括：
 
 - `YOLOv11` 运行权重
 - `GenPose2` 三个 checkpoint
@@ -128,48 +122,7 @@ hf auth login
 
 `brew install huggingface-cli` 只适用于已经安装了 Homebrew 的机器。
 
-### 2. 打包并上传权重
-
-建议单独建一个模型仓库，例如：
-
-```bash
-export AIWS_HF_WEIGHTS_REPO=tancilon/aiws5.1-weights
-```
-
-先本地打包：
-
-```bash
-bash scripts/prepare_hf_weights_bundle.sh
-```
-
-再直接上传：
-
-```bash
-bash scripts/upload_weights_to_hf.sh
-```
-
-默认行为：
-
-- 自动读取 `AIWS_HF_WEIGHTS_REPO`
-- 默认创建 `model` 类型仓库
-- 默认按私有仓库创建
-- 默认使用 `hf upload`
-
-如果当前机器上的 `hf` CLI 在代理环境下报 `socksio` 或 TLS 相关错误，可以切换到兼容性更好的旧版 Python 上传后端：
-
-```bash
-export AIWS_HF_UPLOAD_BACKEND=legacy-python
-bash scripts/upload_weights_to_hf.sh
-```
-
-如果网络不稳定，想换成更适合断点续传的方式：
-
-```bash
-export AIWS_HF_UPLOAD_MODE=upload-large-folder
-bash scripts/upload_weights_to_hf.sh
-```
-
-### 3. 新机器下载权重
+### 2. 新机器下载权重
 
 在新机器上登录 Hugging Face 后执行：
 
@@ -236,11 +189,7 @@ bash scripts/run_aiws.sh aiws_sub "data/AIWS/F120/1_color.png" "data/AIWS/F120/1
 
 系统级安装和 GPU runtime 配置需要你提前完成。
 
-### 2. 根分区空间不够怎么办
-
-如果 Docker 默认写到根盘，而根盘空间不足，可以先参考 [migrate_docker_storage_to_bakhda4.sh](scripts/migrate_docker_storage_to_bakhda4.sh) 把 Docker 数据迁到大容量盘。
-
-### 3. 如何确认镜像名被根流程正确读取
+### 2. 如何确认镜像名被根流程正确读取
 
 可以先设置环境变量，再运行：
 
@@ -252,12 +201,4 @@ export AIWS_FOUNDATIONPOSE_IMAGE=myrepo/foundationpose:latest
 
 根配置 [aiws_sub.yaml](config/aiws_sub.yaml) 会从这三个环境变量读取镜像名。
 
-## 子项目说明
 
-三个算法子项目各自仍保留自己的 README：
-
-- [yolov11-seg-aiws/README.md](yolov11-seg-aiws/README.md)
-- [GenPose2/README.md](GenPose2/README.md)
-- [aiws_alignment-feat-model-free/README.md](aiws_alignment-feat-model-free/README.md)
-
-如果你要看单个算法本身的训练或原始推理说明，优先看这些子 README。
