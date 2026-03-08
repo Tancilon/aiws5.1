@@ -1,0 +1,6 @@
+name: yolo11
+channels:
+  - defaults
+dependencies:
+  - python=3.9
+prefix: /home/dq/miniconda3/envs/yolo11

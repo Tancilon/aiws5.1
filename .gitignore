@@ -6,6 +6,7 @@ Thumbs.db
 *~
 .vscode/
 .idea/
+/.git_nested_backup/
 
 # Python
 __pycache__/
