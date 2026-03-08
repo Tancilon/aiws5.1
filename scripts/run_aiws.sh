@@ -26,7 +26,7 @@ echo -e "\033[33mgpu id (to use): ${gpu_id}\033[0m"
 
 export HYDRA_FULL_ERROR=1 
 export CUDA_VISIBLE_DEVICES=${gpu_id}
-conda run -n aiws python workspace.py --config-name=${config_name}.yaml \
+conda run --no-capture-output -n aiws python -u workspace.py --config-name=${config_name}.yaml \
                                       debug="$DEBUG" \
                                       rgb_path="$rgb_path" \
                                       depth_path="$depth_path"

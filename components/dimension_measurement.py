@@ -69,7 +69,6 @@ class DimensionMeasurement(BaseAlgorithm):
            raise FileNotFoundError(f"[DimensionMeasurement] depth_path not found: {depth_path}")
         self.prepare_data(rgb_path, depth_path)
         cmd = self.build_cmd()
-        # components/dimension_measurement.py
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         except subprocess.CalledProcessError as e:
@@ -177,7 +176,7 @@ print(json.dumps({{"pose": pose_out, "length": length_out}}))
 """
         return build_docker_run_cmd(
             image_name=self.image_name,
-            container_cmd=["python", "-c", script],
+            container_cmd=["python", "-u", "-c", script],
             workdir=genpose_root,
             env={
                 "TORCH_HOME": "/workspace_cache/torch",

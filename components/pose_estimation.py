@@ -105,7 +105,7 @@ print("__POSE_JSON__" + json.dumps({{"pose": pose_out}}))
 """
         return build_docker_run_cmd(
             image_name=self.image_name,
-            container_cmd=["python", "-c", script],
+            container_cmd=["python", "-u", "-c", script],
             workdir=foundationpose_root,
             env={
                 "PYTHONPATH": str(foundationpose_root),

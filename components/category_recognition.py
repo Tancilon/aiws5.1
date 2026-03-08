@@ -125,7 +125,7 @@ print(json.dumps({{"predictions": predictions, "mask_path": str(mask_path)}}))
 """
         return build_docker_run_cmd(
             image_name=self.image_name,
-            container_cmd=["python", "-c", script],
+            container_cmd=["python", "-u", "-c", script],
             env={
                 "OPENCV_IO_ENABLE_OPENEXR": "1",
                 "YOLO_CONFIG_DIR": "/tmp/ultralytics",
