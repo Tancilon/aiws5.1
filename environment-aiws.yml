@@ -1,0 +1,16 @@
+name: aiws
+channels:
+  - conda-forge
+dependencies:
+  - python=3.8.13
+  - pip
+  - pip:
+      # Host-side orchestrator only. Heavy algorithm dependencies live in Docker images.
+      - hydra-core==1.3.2
+      - omegaconf==2.3.0
+      - termcolor==2.4.0
+      - numpy==1.24.4
+      - opencv-python==4.12.0.88
+      - PyYAML==6.0.3
+      - OpenEXR==3.4.4
+      - imath==0.0.2

@@ -1,0 +1,82 @@
+{
+    "gaiban": {
+        "obj_path": "assets/obj_share_models/gaiban/gaiban.obj",
+        "sizes": [
+            [
+                0.124000,
+                0.115000,
+                0.124000
+            ],
+            [
+                0.150000,
+                0.404000,
+                0.150000
+            ],
+            [
+                0.106000,
+                0.258214,
+                0.106000
+            ],
+            [
+                0.100000,
+                0.057590,
+                0.100000
+            ],
+            [
+                0.103000,
+                0.223000,
+                0.103000
+            ]
+        ]
+    },
+    "fangguan": {
+        "obj_path": "assets/obj_share_models/fangguan/fangguan.obj",
+        "sizes": [
+            [
+                0.220000,
+                0.209000,
+                0.220000
+            ],
+            [
+                0.220000,
+                0.408000,
+                0.220000
+            ]
+        ]
+    },
+    "labakou": {
+        "obj_path": "assets/obj_share_models/labakou/labakou.obj",
+        "sizes": [
+            [
+                0.198000,
+                0.168000,
+                0.300000
+            ],
+            [
+                0.150000,
+                0.087000,
+                0.300000
+            ]
+        ]
+    },
+    "caogang": {
+        "obj_path": "assets/obj_share_models/caogang/caogang.obj",
+        "sizes": [
+            [
+                0.173890,
+                0.060000,
+                0.300000
+            ]
+        ]
+    },
+    "Hxinggang": {
+        "obj_path": "assets/obj_share_models/Hxinggang/Hxinggang.obj",
+        "sizes": [
+            [
+                0.210000,
+                0.128000,
+                0.100000
+            ]
+        ]
+    }
+}

@@ -1,0 +1,60 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.ipynb_checkpoints/
+
+# Packaging / local env
+.env
+.env.*
+.venv/
+venv/
+env/
+dist/
+build/
+*.egg-info/
+
+# Logs / temporary files
+*.log
+*.pid
+*.tmp
+*.temp
+
+# Model artifacts
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.engine
+*.trt
+
+# Root runtime outputs
+/data/hydra_outputs/
+/data/tmp_output/
+
+# YOLOv11 local datasets / outputs
+/yolov11-seg-aiws/data/
+/yolov11-seg-aiws/runs/
+
+# GenPose2 generated outputs
+/GenPose2/results/
+/GenPose2/networks/pts_encoder/pointnet2_utils/pointnet2/build/
+/GenPose2/networks/pts_encoder/pointnet2_utils/pointnet2/**/*.so
+
+# FoundationPose generated outputs
+/aiws_alignment-feat-model-free/mycpp/build/
+/aiws_alignment-feat-model-free/mycpp/**/*.so
+/aiws_alignment-feat-model-free/bundlesdf/mycuda/build/
+/aiws_alignment-feat-model-free/bundlesdf/mycuda/**/*.so

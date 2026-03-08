@@ -1,0 +1,57 @@
+name: aiws_visual_perception_algorithms
+
+rgb_path: 
+depth_path:
+
+debug: False
+clean_hydra_output: True
+tmp_dir: data/tmp_output
+workpiece_info_path: assets/workpiece_info.json
+
+docker_images:
+  yolo: ${oc.env:AIWS_YOLO_IMAGE,yolov11-seg:infer}
+  genpose2: ${oc.env:AIWS_GENPOSE2_IMAGE,genpose2-env:test}
+  foundationpose: ${oc.env:AIWS_FOUNDATIONPOSE_IMAGE,foundationpose-env:test}
+
+camera:
+  intrinsics: &intrinsics
+    fx: 1171.2755126953
+    fy: 1170.4400634766
+    cx: 970.1624145508
+    cy: 542.5263671875
+    width: 1920
+    height: 1080
+
+category_recognition:
+  _target_: components.category_recognition.CategoryRecognition
+  ckpt_path: yolov11-seg-aiws/runs/segment/train2/weights/best.pt
+  tmp_output_path: ${tmp_dir}
+  image_name: ${docker_images.yolo}
+
+
+dimension_measurement:
+  _target_: components.dimension_measurement.DimensionMeasurement
+  data_path: ${tmp_dir}/gendata
+  tmp_output_path: ${tmp_dir}
+  intrinsics: *intrinsics
+  query_mode: True
+  sigma: 0.95
+  workpiece_info_path: ${workpiece_info_path}
+  image_name: ${docker_images.genpose2}
+  torch_cache_host: ${oc.env:HOME}/.cache/torch
+
+
+pose_estimation:
+  _target_: components.pose_estimation.PoseEstimation
+  data_path: ${tmp_dir}/foundationpose
+  tmp_output_path: ${tmp_dir}
+  intrinsics: *intrinsics
+  workpiece_info_path: ${workpiece_info_path}
+  image_name: ${docker_images.foundationpose}
+  warp_cache_host: /tmp/foundationpose-warp-cache
+
+hydra:
+  job:
+    override_dirname: ${name}
+  run:
+    dir: data/hydra_outputs/${now:%Y.%m.%d}
