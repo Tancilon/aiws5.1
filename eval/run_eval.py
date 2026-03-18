@@ -22,6 +22,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from eval.pose_align_metric import PoseAlignmentMetricEvaluator
+
 
 METRIC_NOTES = {
     "Acc_cls": "统计类别识别结果与样本标注 class_name 一致的比例，用于评价 YOLOv11 分割阶段的类别判断能力。",
@@ -35,6 +37,9 @@ METRIC_NOTES = {
     "T_dim": "统计 GenPose2 阶段单样本平均运行时间，反映尺寸测量阶段的推理效率。",
     "T_pose": "由于缺少真实工件位姿标注，FoundationPose 阶段不采用位姿精度误差，而以单样本平均运行时间作为主要评价指标。",
     "Succ_pose": "统计 FoundationPose 是否成功输出合法 4x4 位姿矩阵的比例，用于反映姿态估计阶段运行稳定性。",
+    "pose_align_cover_rate": "统计渲染模板有效像素中，与观测深度和前景 mask 同时重叠的比例，用于评价位姿与观测轮廓的对齐程度。",
+    "pose_align_avg_dist_mm": "在观测与渲染共同可见且深度误差小于 80mm 的像素上，统计平均深度差，单位为毫米。",
+    "t_pose_align": "统计新增位姿对齐评测阶段单样本平均运行时间，反映该后处理指标的执行开销。",
     "T_all": "从输入 RGB、Depth 图像开始，到输出类别、尺寸、位姿结果为止，统计整条流程单样本平均运行时间。",
     "Succ_all": "统计整条流程无报错且成功输出完整结果的样本比例，用于评价系统整体稳定性。",
 }
@@ -51,6 +56,9 @@ METRIC_NAMES_ZH = {
     "T_dim": "尺寸测量平均耗时",
     "T_pose": "姿态估计平均耗时",
     "Succ_pose": "姿态估计成功率",
+    "pose_align_cover_rate": "位姿对齐覆盖率",
+    "pose_align_avg_dist_mm": "位姿对齐平均深度差",
+    "t_pose_align": "位姿对齐评测平均耗时",
     "T_all": "端到端平均耗时",
     "Succ_all": "端到端成功率",
 }
@@ -211,6 +219,60 @@ def serialize_csv_value(value: Any) -> str:
     return str(value)
 
 
+def format_duration(seconds: float) -> str:
+    total_milliseconds = int(round(float(seconds) * 1000.0))
+    hours, remainder = divmod(total_milliseconds, 3600000)
+    minutes, remainder = divmod(remainder, 60000)
+    whole_seconds, milliseconds = divmod(remainder, 1000)
+    return f"{hours:02d}:{minutes:02d}:{whole_seconds:02d}.{milliseconds:03d}"
+
+
+def find_single_file(directory: Path, description: str) -> Path:
+    directory = Path(directory)
+    if not directory.exists():
+        raise FileNotFoundError(f"{description} directory not found: {directory}")
+
+    candidates = sorted(path for path in directory.iterdir() if path.is_file())
+    if not candidates:
+        raise FileNotFoundError(f"{description} not found in {directory}")
+    if len(candidates) != 1:
+        raise RuntimeError(f"{description} count abnormal in {directory}: {len(candidates)}")
+    return candidates[0]
+
+
+def evaluate_pose_alignment(
+    sample_id: str,
+    depth_path: Path,
+    pose_array: np.ndarray,
+    pose_estimation: Any,
+    pose_align_metric: PoseAlignmentMetricEvaluator,
+) -> Dict[str, float]:
+    data_path = Path(pose_estimation.data_path)
+    cam_k_path = data_path / "cam_K.txt"
+    if not cam_k_path.exists():
+        raise FileNotFoundError(f"Pose alignment cam_K not found: {cam_k_path}")
+
+    mesh_path = Path(getattr(pose_estimation, "mesh_file_path", ""))
+    if not mesh_path.exists():
+        raise FileNotFoundError(f"Pose alignment mesh not found: {mesh_path}")
+
+    mask_path = find_single_file(data_path / "masks", "Pose alignment mask")
+    camera_matrix = pose_align_metric.load_camera_intrinsic(cam_k_path)
+    result = pose_align_metric.evaluate(
+        obs_depth_path=depth_path,
+        mesh_path=mesh_path,
+        pose=pose_array,
+        camera_intrinsics=camera_matrix,
+        mask_path=mask_path,
+        output_dir=None,
+        rendered_depth_filename=f"{sample_id}_pose_align_rendered.exr",
+    )
+    return {
+        "pose_align_cover_rate": float(result["obs_point_cloud_cover_rate"]),
+        "pose_align_avg_dist_mm": float(result["avg_dist"]),
+    }
+
+
 def write_per_sample_csv(output_path: Path, records: Sequence[Dict[str, Any]]) -> None:
     fieldnames = [
         "sample_id",
@@ -239,6 +301,10 @@ def write_per_sample_csv(output_path: Path, records: Sequence[Dict[str, Any]]) -
         "pose",
         "pose_success",
         "t_pose",
+        "pose_align_cover_rate",
+        "pose_align_avg_dist_mm",
+        "pose_align_success",
+        "t_pose_align",
         "all_success",
         "t_all",
         "error_stage",
@@ -268,6 +334,9 @@ def write_metrics_csv(output_path: Path, summary: Dict[str, Any]) -> None:
             "T_dim",
             "T_pose",
             "Succ_pose",
+            "pose_align_cover_rate",
+            "pose_align_avg_dist_mm",
+            "t_pose_align",
             "T_all",
             "Succ_all",
         ):
@@ -297,6 +366,8 @@ def build_summary(
     dim_conf_records = [r for r in dim_success_records if r.get("dim_confidence") is not None]
     query_dim_records = [r for r in dim_success_records if r.get("query_match_dim") is not None]
     pose_success_records = [r for r in records if r.get("pose_success")]
+    pose_align_attempted_records = [r for r in records if r.get("t_pose_align") is not None]
+    pose_align_success_records = [r for r in records if r.get("pose_align_success")]
     all_success_records = [r for r in records if r.get("all_success")]
 
     acc_cls = sum(1 for r in records if r.get("class_correct")) / total_samples if total_samples else None
@@ -327,6 +398,13 @@ def build_summary(
         "T_dim": mean_or_none([r["t_dim"] for r in dim_attempted_records]),
         "T_pose": mean_or_none([r["t_pose"] for r in pose_attempted_records]),
         "Succ_pose": succ_pose,
+        "pose_align_cover_rate": mean_or_none(
+            [float(r["pose_align_cover_rate"]) for r in pose_align_success_records if r.get("pose_align_cover_rate") is not None]
+        ),
+        "pose_align_avg_dist_mm": mean_or_none(
+            [float(r["pose_align_avg_dist_mm"]) for r in pose_align_success_records if r.get("pose_align_avg_dist_mm") is not None]
+        ),
+        "t_pose_align": mean_or_none([r["t_pose_align"] for r in pose_align_attempted_records]),
         "T_all": mean_or_none([r["t_all"] for r in records if r.get("t_all") is not None]),
         "Succ_all": succ_all,
     }
@@ -353,6 +431,8 @@ def build_summary(
             "query_dim_success": sum(1 for r in query_dim_records if r.get("query_match_dim")),
             "pose_attempted": len(pose_attempted_records),
             "pose_success": len(pose_success_records),
+            "pose_align_attempted": len(pose_align_attempted_records),
+            "pose_align_success": len(pose_align_success_records),
             "all_success": len(all_success_records),
         },
         "metric_denominators": {
@@ -364,6 +444,9 @@ def build_summary(
             "Conf_dim": len(dim_conf_records),
             "Succ_query_dim": len(query_dim_records),
             "Succ_pose": len(pose_attempted_records),
+            "pose_align_cover_rate": len(pose_align_success_records),
+            "pose_align_avg_dist_mm": len(pose_align_success_records),
+            "t_pose_align": len(pose_align_attempted_records),
             "Succ_all": total_samples,
         },
         "metric_names_zh": METRIC_NAMES_ZH,
@@ -383,6 +466,7 @@ def evaluate_sample(
     category_recognition: Any,
     dimension_measurement: Any,
     pose_estimation: Any,
+    pose_align_metric: PoseAlignmentMetricEvaluator,
 ) -> Dict[str, Any]:
     meta = load_meta(meta_path)
     gt_class_name = meta["annotation"]["class_name"]
@@ -415,6 +499,10 @@ def evaluate_sample(
         "pose": None,
         "pose_success": False,
         "t_pose": None,
+        "pose_align_cover_rate": None,
+        "pose_align_avg_dist_mm": None,
+        "pose_align_success": False,
+        "t_pose_align": None,
         "all_success": False,
         "t_all": None,
         "error_stage": None,
@@ -497,6 +585,7 @@ def evaluate_sample(
 
     if record["dim_success"] and pose_input_dimensions is not None:
         pose_start = time.perf_counter()
+        pose_array = None
         try:
             pose_result = pose_estimation.infer(
                 color_path,
@@ -514,6 +603,26 @@ def evaluate_sample(
             record["error_message"] = str(exc)
         finally:
             record["t_pose"] = time.perf_counter() - pose_start
+
+        if record["pose_success"] and pose_array is not None:
+            pose_align_start = time.perf_counter()
+            try:
+                pose_align_result = evaluate_pose_alignment(
+                    sample_id=sample_id,
+                    depth_path=depth_path,
+                    pose_array=pose_array,
+                    pose_estimation=pose_estimation,
+                    pose_align_metric=pose_align_metric,
+                )
+                record["pose_align_cover_rate"] = pose_align_result["pose_align_cover_rate"]
+                record["pose_align_avg_dist_mm"] = pose_align_result["pose_align_avg_dist_mm"]
+                record["pose_align_success"] = True
+            except Exception as exc:
+                if record["error_stage"] is None:
+                    record["error_stage"] = "pose_align"
+                    record["error_message"] = str(exc)
+            finally:
+                record["t_pose_align"] = time.perf_counter() - pose_align_start
 
     record["t_all"] = time.perf_counter() - total_start
     record["all_success"] = bool(
@@ -537,11 +646,16 @@ def print_summary(summary: Dict[str, Any]) -> None:
     print(f"[Eval] T_dim: {metrics['T_dim']}")
     print(f"[Eval] T_pose: {metrics['T_pose']}")
     print(f"[Eval] Succ_pose: {metrics['Succ_pose']}")
+    print(f"[Eval] pose_align_cover_rate: {metrics['pose_align_cover_rate']}")
+    print(f"[Eval] pose_align_avg_dist_mm: {metrics['pose_align_avg_dist_mm']}")
+    print(f"[Eval] t_pose_align: {metrics['t_pose_align']}")
     print(f"[Eval] T_all: {metrics['T_all']}")
     print(f"[Eval] Succ_all: {metrics['Succ_all']}")
 
 
 def main(args: argparse.Namespace) -> int:
+    run_started_at = datetime.now()
+    run_started_perf = time.perf_counter()
     os.chdir(REPO_ROOT)
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_id
 
@@ -570,6 +684,8 @@ def main(args: argparse.Namespace) -> int:
     records: List[Dict[str, Any]] = []
     runtime_root = output_dir / "runtime"
     runtime_root.mkdir(parents=True, exist_ok=True)
+    pose_align_metric = PoseAlignmentMetricEvaluator(verbose=False)
+
     def run_one(index: int, sample_id: str) -> Tuple[int, Dict[str, Any]]:
         color_path = dataset_dir / f"{sample_id}_color.png"
         depth_path = dataset_dir / f"{sample_id}_depth.exr"
@@ -597,6 +713,7 @@ def main(args: argparse.Namespace) -> int:
                 category_recognition=category_recognition,
                 dimension_measurement=dimension_measurement,
                 pose_estimation=pose_estimation,
+                pose_align_metric=pose_align_metric,
             )
         except Exception as exc:
             meta = load_meta(meta_path)
@@ -627,6 +744,10 @@ def main(args: argparse.Namespace) -> int:
                 "pose": None,
                 "pose_success": False,
                 "t_pose": None,
+                "pose_align_cover_rate": None,
+                "pose_align_avg_dist_mm": None,
+                "pose_align_success": False,
+                "t_pose_align": None,
                 "all_success": False,
                 "t_all": None,
                 "error_stage": "runtime_setup",
@@ -642,6 +763,9 @@ def main(args: argparse.Namespace) -> int:
         _, record = run_one(index, sample_id)
         records.append(record)
         status = "ok" if record["all_success"] else f"failed@{record['error_stage']}"
+        if record.get("t_pose_align") is not None:
+            pose_align_status = "ok" if record.get("pose_align_success") else "failed"
+            status = f"{status}, pose_align={pose_align_status}"
         t_all_str = "n/a" if record["t_all"] is None else f"{record['t_all']:.3f}s"
         print(
             f"[Eval] {index}/{len(sample_ids)} sample={sample_id} "
@@ -655,6 +779,11 @@ def main(args: argparse.Namespace) -> int:
         shutil.rmtree(runtime_root, ignore_errors=True)
 
     summary = build_summary(args=args, dataset_dir=dataset_dir, output_dir=output_dir, records=records)
+    run_finished_at = datetime.now()
+    run_elapsed_seconds = time.perf_counter() - run_started_perf
+    summary["started_at"] = run_started_at.isoformat(timespec="seconds")
+    summary["finished_at"] = run_finished_at.isoformat(timespec="seconds")
+    summary["total_duration_seconds"] = run_elapsed_seconds
 
     per_sample_json_path = output_dir / "per_sample_results.json"
     per_sample_csv_path = output_dir / "per_sample_results.csv"
@@ -673,6 +802,9 @@ def main(args: argparse.Namespace) -> int:
     print(f"[Eval] Per-sample CSV: {per_sample_csv_path}")
     print(f"[Eval] Summary JSON: {summary_json_path}")
     print(f"[Eval] Metrics CSV: {metrics_csv_path}")
+    print(f"[Eval] Started at: {summary['started_at']}")
+    print(f"[Eval] Finished at: {summary['finished_at']}")
+    print(f"[Eval] Total duration: {format_duration(run_elapsed_seconds)}")
     return 0
 
 
