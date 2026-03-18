@@ -60,7 +60,8 @@ class DimensionMeasurement(BaseAlgorithm):
     def infer(self,
               rgb_path: Path,
               depth_path: Path,
-              class_name: str):
+              class_name: str,
+              return_details: bool = False):
         rgb_path = Path(rgb_path)
         if not rgb_path.exists():
            raise FileNotFoundError(f"[DimensionMeasurement] rgb_path not found: {rgb_path}")
@@ -68,6 +69,31 @@ class DimensionMeasurement(BaseAlgorithm):
         if not depth_path.exists():
            raise FileNotFoundError(f"[DimensionMeasurement] depth_path not found: {depth_path}")
         self.prepare_data(rgb_path, depth_path)
+        raw_length = self._infer_raw_length()
+
+        queried_length = None
+        query_confidence = None
+        if self.query_mode:
+            queried_length, query_confidence = self.query(raw_length, class_name)
+            final_result = (queried_length, query_confidence)
+        else:
+            final_result = raw_length
+
+        if not return_details:
+            return final_result
+
+        return {
+            "raw_length": np.asarray(raw_length, dtype=np.float32),
+            "query_length": None if queried_length is None else np.asarray(queried_length, dtype=np.float32),
+            "query_confidence": query_confidence,
+            "final_length": (
+                np.asarray(queried_length, dtype=np.float32)
+                if queried_length is not None
+                else np.asarray(raw_length, dtype=np.float32)
+            ),
+        }
+
+    def _infer_raw_length(self):
         cmd = self.build_cmd()
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
@@ -78,13 +104,7 @@ class DimensionMeasurement(BaseAlgorithm):
         if not lines:
             raise RuntimeError("[DimensionMeasurement] No inference output received")
         payload = json.loads(lines[-1])
-        length_1d = payload["length"][0][0]
-        
-        if not self.query_mode:
-            return length_1d
-        
-        else:
-            return self.query(length_1d, class_name)
+        return np.asarray(payload["length"][0][0], dtype=np.float32)
 
     def prepare_data(self, rgb_path: Path, depth_path: Path):
         data_path = Path(self.data_path)

@@ -44,6 +44,7 @@ build/
 # Root runtime outputs
 /data/hydra_outputs/
 /data/tmp_output/
+/eval/results/
 
 # YOLOv11 local datasets / outputs
 /yolov11-seg-aiws/data/
