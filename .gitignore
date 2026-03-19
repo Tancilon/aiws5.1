@@ -71,3 +71,11 @@ build/
 
 # Algorithm local misc
 /yolov11-seg-aiws/datasets/
+
+# Offline env bundle exports
+/assets/env_files/docker-images/
+/assets/env_files/weights/
+/assets/env_files/bundle-manifest.txt
+/assets/env_files/environment-aiws.yml
+
+/tmp

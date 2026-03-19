@@ -4,24 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-
-aiws_project_weight_paths() {
-  cat <<'EOF'
-yolov11-seg-aiws/runs/segment/train2/weights/best.pt
-GenPose2/results/ckpts/ScoreNet/scorenet.pth
-GenPose2/results/ckpts/EnergyNet/energynet.pth
-GenPose2/results/ckpts/ScaleNet/scalenet.pth
-aiws_alignment-feat-model-free/weights/2024-01-11-20-02-45/model_best.pth
-aiws_alignment-feat-model-free/weights/2023-10-28-18-33-37/model_best.pth
-EOF
-}
-
-aiws_torch_cache_entries() {
-  cat <<EOF
-file|${HOME}/.cache/torch/hub/checkpoints/dinov2_vits14_pretrain.pth|torch-hub/checkpoints/dinov2_vits14_pretrain.pth
-archive_dir|${HOME}/.cache/torch/hub/facebookresearch_dinov2_main|torch-hub/facebookresearch_dinov2_main.tar.gz|facebookresearch_dinov2_main
-EOF
-}
+source "${SCRIPT_DIR}/aiws_env_bundle_lib.sh"
 
 REPO_ID="${1:-${AIWS_HF_WEIGHTS_REPO:-}}"
 REVISION="${AIWS_HF_WEIGHTS_REVISION:-main}"
@@ -230,47 +213,7 @@ if [[ -f "${STAGE_DIR}/SHA256SUMS" ]]; then
   )
 fi
 
-while IFS= read -r rel_path; do
-  [[ -z "${rel_path}" ]] && continue
-
-  src="${STAGE_DIR}/${rel_path}"
-  dst="${PROJECT_ROOT}/${rel_path}"
-
-  if [[ ! -f "${src}" ]]; then
-    echo "downloaded bundle missing file: ${rel_path}" >&2
-    exit 1
-  fi
-
-  mkdir -p "$(dirname "${dst}")"
-  cp -f "${src}" "${dst}"
-done < <(aiws_project_weight_paths)
-
-while IFS='|' read -r entry_type _src rel_dst restore_name; do
-  [[ -z "${entry_type}" ]] && continue
-
-  src="${STAGE_DIR}/${rel_dst}"
-  case "${entry_type}" in
-    file)
-      dst="${HOME}/.cache/torch/hub/checkpoints/$(basename "${src}")"
-      mkdir -p "$(dirname "${dst}")"
-      cp -f "${src}" "${dst}"
-      ;;
-    dir)
-      dst="${HOME}/.cache/torch/hub/$(basename "${src}")"
-      mkdir -p "${dst}"
-      cp -a "${src}/." "${dst}/"
-      ;;
-    archive_dir)
-      dst="${HOME}/.cache/torch/hub"
-      mkdir -p "${dst}"
-      tar -xzf "${src}" -C "${dst}"
-      ;;
-    *)
-      echo "unknown manifest entry type: ${entry_type}" >&2
-      exit 1
-      ;;
-  esac
-done < <(aiws_torch_cache_entries)
+aiws_restore_weights_from_stage "${STAGE_DIR}" "${PROJECT_ROOT}"
 
 echo "Weights restored into project and torch cache."
 echo

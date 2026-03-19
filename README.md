@@ -50,6 +50,11 @@ bash scripts/build_aiws_stack.sh
 2. 从 Hugging Face 下载运行期权重
 3. 构建三张算法镜像
 
+如果本地没有离线 bundle，那么第 2、3 步默认依赖网络：
+
+- 权重从 Hugging Face 下载
+- Docker 镜像通过 `docker build` 在线拉取基础镜像和安装依赖
+
 默认镜像名：
 
 - `yolov11-seg:infer`
@@ -64,6 +69,45 @@ bash scripts/build_aiws_stack.sh
 
 ```bash
 AIWS_DOWNLOAD_WEIGHTS=0 bash scripts/build_aiws_stack.sh
+```
+
+## 离线构建
+
+如果一台“源机器”已经准备好了三张 Docker 镜像和全部运行权重，可以先把它们导出到仓库内的离线 bundle 目录：
+
+```bash
+bash scripts/export_aiws_env_bundle.sh
+```
+
+默认会导出到：
+
+```bash
+assets/env_files/
+```
+
+然后把整个仓库连同 `assets/env_files` 一起交给其他团队。目标机器上可直接执行：
+
+```bash
+AIWS_ENV_BUNDLE_MODE=require \
+AIWS_SKIP_CONDA_SETUP=1 \
+bash scripts/build_aiws_stack.sh
+```
+
+含义如下：
+
+- `AIWS_ENV_BUNDLE_MODE=require`：只使用 `assets/env_files` 中的离线镜像包和权重，不再回退到网络下载或在线 `docker build`
+- `AIWS_SKIP_CONDA_SETUP=1`：跳过宿主机 `aiws` conda 环境创建；建议在目标机器已经具备该环境时使用
+
+如果你希望“有离线包就用，没有就回退联网构建”，可改用默认模式：
+
+```bash
+bash scripts/build_aiws_stack.sh
+```
+
+或者显式指定：
+
+```bash
+AIWS_ENV_BUNDLE_MODE=auto bash scripts/build_aiws_stack.sh
 ```
 
 ## 使用代理构建
@@ -200,5 +244,4 @@ export AIWS_FOUNDATIONPOSE_IMAGE=myrepo/foundationpose:latest
 ```
 
 根配置 [aiws_sub.yaml](config/aiws_sub.yaml) 会从这三个环境变量读取镜像名。
-
 
