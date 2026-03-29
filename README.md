@@ -196,6 +196,40 @@ bash scripts/build_aiws_stack.sh
 
 如果当前机器上的 `hf` CLI 在代理环境下不稳定，构建脚本默认会切到兼容性更高的 `legacy-python` 下载后端。
 
+### 3. 上传项目 assets 到 Hugging Face
+
+如果你要把当前仓库里的整个 `assets/` 目录同步到 Hugging Face，可以直接执行：
+
+```bash
+bash scripts/upload_assets_to_hf.sh
+```
+
+默认行为：
+
+- 自动读取当前 `hf auth login` 的账号名
+- 上传到 `username/aiws5.1-assets`
+- 仓库类型为 `dataset`
+- 如果仓库不存在，则创建为私有仓库
+- 仅上传 `assets/**`，并在远端保留 `assets/` 路径前缀
+
+也可以手动指定目标仓库：
+
+```bash
+bash scripts/upload_assets_to_hf.sh tancilon/aiws5.1-assets
+```
+
+常用可覆盖环境变量：
+
+```bash
+export AIWS_HF_ASSETS_REPO=tancilon/aiws5.1-assets
+export AIWS_HF_ASSETS_REPO_TYPE=dataset
+export AIWS_HF_ASSETS_PRIVATE=1
+export AIWS_HF_ASSETS_REVISION=main
+export AIWS_HF_ASSETS_NUM_WORKERS=4
+
+bash scripts/upload_assets_to_hf.sh
+```
+
 ## 运行示例
 
 构建完成后，直接运行：
@@ -244,4 +278,3 @@ export AIWS_FOUNDATIONPOSE_IMAGE=myrepo/foundationpose:latest
 ```
 
 根配置 [aiws_sub.yaml](config/aiws_sub.yaml) 会从这三个环境变量读取镜像名。
-
